@@ -6,17 +6,15 @@ Spatial-Temporal Deep Embedding for Vehicle Trajectory Reconstruction from High-
 - The designed model is applied to process all public NGSIM US-101 videos to generate complete vehicle trajectories, indicating a good scalability and adaptability. Last but not least, strengths of scanline method with STDE and future directions were discussed.  Code, STMap dataset and video trajectory are made publicly available in the online repository.
 
 
-Overview
+Overview  
 --------------------
 
 <p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/Overview.png" /></p>
 
-Video Trajectory (NGSIM US 101 Data)
+Video Data and Scanlines (NGSIM US 101 Data)
 -------------------
 <p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/US-101%20Scanlines.png" /></p>
 
-
-👉 [***Link for Video Trajectory***](https://drive.google.com/drive/folders/1BXlYHSgIJm-WGje_HwBCDFLnqNAuF7G5?usp=sharing) 
 
 
 Highlights
@@ -34,7 +32,7 @@ Highlights
 <p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/Feature%20Pyramid%20Embedding.png" width=50% height=50% /></p>
 
 
-Trajecotry Output
+Trajecotry Output 👉 [***Link for Video Trajectory***](https://drive.google.com/drive/folders/1BXlYHSgIJm-WGje_HwBCDFLnqNAuF7G5?usp=sharing)
 --------------------
 - Rear Bumper Trajectory for Vehicle Moving Away
 <p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/C4L3_P2_Pixel_Trajectory.png" width=50% height=50% /></p>

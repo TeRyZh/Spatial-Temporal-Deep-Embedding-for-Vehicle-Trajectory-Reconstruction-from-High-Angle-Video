@@ -1,30 +1,46 @@
-# [Hugo Documentation Theme](https://github.com/wowchemy/hugo-documentation-theme)
+Spatial-Temporal Deep Embedding for Vehicle Trajectory Reconstruction from High-Angle Video
+---------------------
 
-[![Screenshot](./preview.png)](https://wowchemy.com/hugo-themes/)
+Spatial-temporal Map (STMap)-based methods have shown great potentials to process high-angle videos for vehicle trajectory reconstruction, which can meet the needs of various data-driven modeling and imitation learning applications.  In this paper, we developed Spatial-Temporal Deep Embedding (STDE) model that employs parity constraints at both pixel and instance level to generate instance-aware embeddings for vehicle stripe segmentation on STMap. At pixel level, each pixel was encoded with its 8-neighbor pixels at different ranges and this encoding is subsequently used to guide a neural network to learn the embedding mechanism. At the instance level, a discriminative loss function is designed to pull pixels belonging to the same instance closer and separate mean value of different instances far apart in the embedding space. The output of the spatial-temporal affinity is then optimized by the mutex-watershed algorithm to obtain final clustering results. Based on segmentation metrics, our model outperformed five other baselines that have been used for STMap processing and shows robustness under the influence of shadows, static noises, and overlapping. The designed model is applied to process all public NGSIM US-101 videos to generate complete vehicle trajectories, indicating a good scalability and adaptability. Last but not least, strengths of scanline method with STDE and future directions were discussed.  Code, STMap dataset and video trajectory are made publicly available in the online repository.
 
-The **Documentation** starter template empowers you to easily create **product documentation**, **digital books**, **personal notes**, and **knowledge bases**.
 
-[![Get Started](https://img.shields.io/badge/-Get%20started-ff4655?style=for-the-badge)](https://wowchemy.com/hugo-themes/)
-[![Discord](https://img.shields.io/discord/722225264733716590?style=for-the-badge)](https://discord.com/channels/722225264733716590/742892432458252370/742895548159492138)  
-[![Twitter Follow](https://img.shields.io/twitter/follow/wowchemy?label=Follow%20on%20Twitter)](https://twitter.com/wowchemy)
+Overview
+--------------------
 
-[Check out the latest demo](https://wowchemy.com/docs/) of what you'll get in less than 10 minutes, or [get inspired by how others are using this template](https://wowchemy.com/creators/).
+<p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/Overview.png" /></p>
 
-The integrated [**Wowchemy**](https://wowchemy.com) website builder and CMS makes it easy to create a beautiful website for free. Edit your site in the CMS (or your favorite editor), generate it with [Hugo](https://github.com/gohugoio/hugo), and deploy with GitHub or Netlify. Customize anything on your site with widgets, light/dark themes, and language packs.
+Video Trajectory (NGSIM US 101 Data)
+-------------------
+<p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/US-101%20Scanlines.png" /></p>
 
-- 👉 [**Get Started**](https://wowchemy.com/hugo-themes/)
-- 📚 [View the **documentation**](https://wowchemy.com/docs/)
-- 💬 [Chat with the **Wowchemy research community**](https://discord.gg/z8wNYzb) or [**Hugo community**](https://discourse.gohugo.io)
-- ⬇️ **Automatically import citations from BibTeX** with the [Hugo Academic CLI](https://github.com/wowchemy/hugo-academic-cli)
-- 🐦 Share your new site with the community: [@wowchemy](https://twitter.com/wowchemy) [@GeorgeCushen](https://twitter.com/GeorgeCushen) [#MadeWithWowchemy](https://twitter.com/search?q=%23MadeWithWowchemy&src=typed_query)
-- 🗳 [Take the survey and help us improve #OpenSource](https://forms.gle/NioD9VhUg7PNmdCAA)
-- 🚀 [Contribute improvements](https://github.com/wowchemy/wowchemy-hugo-themes/blob/main/.github/contributing.md) or [suggest improvements](https://github.com/wowchemy/wowchemy-hugo-themes/issues)
-- ⬆️ **Updating?** View the [Update Guide](https://wowchemy.com/docs/hugo-tutorials/update/) and [Release Notes](https://github.com/wowchemy/wowchemy-hugo-themes/releases)
 
-## We ask you, humbly, to support this open source movement
+👉 [***Link for Video Trajectory***](https://drive.google.com/drive/folders/1BXlYHSgIJm-WGje_HwBCDFLnqNAuF7G5?usp=sharing) 
 
-Today we ask you to defend the open source independence of the Wowchemy website builder and themes 🐧
 
-We're an open source movement that depends on your support to stay online and thriving, but 99.9% of our creators don't give; they simply look the other way.
+Highlights
+--------------------
+- Pixel-Parity Spatiotemporal Correlation Learning
+<p> The spatiotemporal affinity relationship of each pixel is encoded into N - dimensional vector $R=[r_1,r_2,…, r_{N-1}, r_N]$, where N is the 8-neighbor pixels within the adjacent spatiotemporal window at different ranges  </p>
+<p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/SpatioTemporal_Adjacent_Encoding.png" /></p>
 
-### [❤️ Click here to become a GitHub Sponsor, unlocking awesome perks such as _exclusive academic templates and widgets_](https://github.com/sponsors/gcushen)
+- Instance-Aware Discriminative Learning
+<p> Between class average embedding vector should be distant. Pixels belonging to the same instance should be close to the average embedding vector of that class. In this Instance-Level Discriminative Learning, to reduce computational overhead, we only consider the vehicle stripes that share the same time window. </p>
+<p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/Instance%20Level%20Embedding.png" /></p>
+
+- Feature Pyramid Multiscale Spatial-Temporal Embedding Architecture
+<p>  multi-resolution spatiotemporal correlation learning module used for analyzing pixelwise relationship preserved in STMap. This problem is considered as correlational learning to reason the affinity relationships between center pixels and its neighbors. However, it is impossible to calculate the affinity scores for all pixel pairs. In order to measure both the long- and short-term information, we adopted the pyramid multiscale resolution scheme as shown in the following figure. </p>
+<p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/Feature%20Pyramid%20Embedding.png" /></p>
+
+
+Trajecotry Output
+--------------------
+<p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/C4L3_P2_Pixel_Trajectory.png" /></p>
+
+License
+-------
+The source code is available only for academic/research purposes (non-commercial).
+
+
+Contributing
+--------
+If you found any issues in our model or new dataset please contact: terry.tianya.zhang@gmail.com

@@ -281,7 +281,8 @@ def loop(cfg, train_provider, valid_provider, model, ema_model, optimizer, iters
         loss_embedding_discrim_total = loss_embedding_discrim * cfg.TRAIN.dis_emb
         loss_mask = cfg.TRAIN.mask_weight * criterion_mask(pred_mask, torch.gt(target_ins[:, 0], 0), weight_rate=[10, 1]).to(device)
         
-        loss = loss_embedding_total + loss_embedding_discrim_total + loss_mask
+#         loss = loss_embedding_total + loss_embedding_discrim_total + loss_mask
+        loss = loss_embedding_total + loss_embedding_discrim_total
         loss.backward()
         pred = F.relu(pred)
 

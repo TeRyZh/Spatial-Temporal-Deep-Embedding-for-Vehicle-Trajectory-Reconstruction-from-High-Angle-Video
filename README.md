@@ -39,7 +39,7 @@ Trajecotry Output 👉 [***Link for Video Trajectory***](https://drive.google.co
 - Rear Bumper Trajectory for Vehicle Moving Away
 <p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/C4L3_P2_Pixel_Trajectory.png" width=50% height=50% /></p>
 
-- Front Bumper Trajectory for Vehicle Moving Twards
+- Front Bumper Trajectory for Vehicle Moving Towards
 <p align="center"><img src="https://github.com/TeRyZh/Spatial-Temporal-Deep-Embedding-for-Vehicle-Trajectory-Reconstruction-from-High-Angle-Video/blob/main/Images/C3L3_P3_Pixel_Trajectory.png" width=50% height=50% /></p>
 
 License

@@ -50,3 +50,9 @@ The source code is available only for academic/research purposes (non-commercial
 Contributing
 --------
 If you found any issues in our model or new dataset please contact: terry.tianya.zhang@gmail.com
+
+Reference
+-----------
+- Gao N, Shan Y, Wang Y, Zhao X, Yu Y, Yang M, Huang K. Ssap: Single-shot instance segmentation with affinity pyramid. InProceedings of the IEEE/CVF International Conference on Computer Vision 2019 (pp. 642-651).
+- Chen, L., Strauch, M. and Merhof, D., 2019, October. Instance segmentation of biomedical images with an object-aware embedding learned with local constraints. In International Conference on Medical Image Computing and Computer-Assisted Intervention (pp. 451-459). Springer, Cham. 
+- Huang, W., Deng, S., Chen, C., Fu, X., & Xiong, Z. (2022). Learning to Model Pixel-Embedded Affinity for Homogeneous Instance Segmentation. Proceedings of the AAAI Conference on Artificial Intelligence, 36(1), 1007-1015. https://doi.org/10.1609/aaai.v36i1.19984

@@ -1,68 +1,119 @@
+""" Full assembly of the parts to form the complete network """
+
 import torch
-from torch import nn
 import torch.nn.functional as F
+import torch.nn as nn
+from torch.autograd import Variable
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms, utils
+from torchvision.utils import make_grid
 
-class ResidualBlock(nn.Module):
-    '''(conv => BN => ReLU) * 2'''
-    def __init__(self, in_ch, out_ch):
-        super(ResidualBlock, self).__init__()
+# Data manipulations
+import numpy as np
+from PIL import Image
+import cv2
+import pandas as pd
+from skimage import io, transform
+import matplotlib.pyplot as plt
 
+
+class ConvBlock(nn.Module):
+
+    def __init__(self, in_channels, out_channels, padding = 1):
+        super(ConvBlock, self).__init__()
+
+        # number of input channels is a number of filters in the previous layer
+        # number of output channels is a number of filters in the current layer
+        # "same" convolutions
         self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=padding, bias=True),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=padding, bias=True),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
         )
-        self.project =nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch))
 
     def forward(self, x):
-        residual = x
         x = self.conv(x)
-        x += self.project(residual)
-        return F.relu(x)
-
-
-class InConv(nn.Module):
-
-    def __init__(self, in_ch, out_ch):
-        super(InConv, self).__init__()
-        self.conv = ResidualBlock(in_ch, out_ch)
-
-    def forward(self, x):
-        return self.conv(x)
-
-
-class Down(nn.Module):
-
-    def __init__(self, in_ch, out_ch):
-        super(Down, self).__init__()
-
-        self.block = ResidualBlock(in_ch, out_ch)
-        self.pool = nn.MaxPool2d(2)
-        # self.pool = nn.Conv2d(out_ch, out_ch, 3,stride=2,padding=1)
-
-    def forward(self, x):
-
-        x = self.block(x)
-        x = self.pool(x)
-
         return x
 
 
-class Up(nn.Module):
+class UpConv(nn.Module):
 
-    def __init__(self, in_ch, out_ch):
-        super(Up, self).__init__()
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)    
-        self.block = ResidualBlock(in_ch, out_ch)
+    def __init__(self, in_channels, out_channels):
+        super(UpConv, self).__init__()
+
+        self.up_sample = nn.Sequential(
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
 
     def forward(self, x):
-        x = self.upsample(x)
-        x = self.block(x)
+        x = self.up_sample(x)
         return x
+
+
+class AttentionBlock(nn.Module):
+    """Attention block with learnable parameters"""
+
+    def __init__(self, F_g, F_l, n_coefficients):
+        """
+        :param F_g: number of feature maps (channels) in previous layer
+        :param F_l: number of feature maps in corresponding encoder layer, transferred via skip connection
+        :param n_coefficients: number of learnable multi-dimensional attention coefficients
+        """
+
+        super(AttentionBlock, self).__init__()
+
+        self.W_gate = nn.Sequential(
+            nn.Conv2d(F_g, n_coefficients, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(n_coefficients)
+        )
+
+        self.W_x = nn.Sequential(
+            nn.Conv2d(F_l, n_coefficients, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(n_coefficients)
+        )
+
+        self.psi = nn.Sequential(
+            nn.Conv2d(n_coefficients, 1, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid()
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, gate, skip_connection):
+        """
+        :param gate: gating signal from previous layer
+        :param skip_connection: activation from corresponding encoder layer
+        :return: output activations
+        """
+
+        print("gate shape: ", gate.shape)
+
+        print("skip_connection shape: ", skip_connection.shape)
+
+        if gate.shape != skip_connection.shape:  # after padding, image size changes 
+            p1 = gate.shape[-1] - skip_connection.shape[-1] 
+            p2 = gate.shape[-2] - skip_connection.shape[-2] 
+            padding = nn.ReplicationPad2d((0, p1, 0, p2)).cuda() 
+            skip_connection = padding(skip_connection) 
+
+        g1 = self.W_gate(gate)
+
+        print(g1.shape)
+
+        x1 = self.W_x(skip_connection)
+
+        print(x1.shape)
+        psi = self.relu(g1 + x1)
+        psi = self.psi(psi)
+        out = skip_connection * psi
+        return out
 
 
 class OutConv(nn.Module):
@@ -75,36 +126,49 @@ class OutConv(nn.Module):
         return self.conv(x)
 
 
+class AttentionUNet(nn.Module):
 
-class ResidualUNet(nn.Module):
-    def __init__(self, in_channels=3,
-                out_channels=2,
-                nfeatures=[16,32,64,128,256],
+    def __init__(self, 
+                in_channels = 3, 
+                out_channels = 2,
+                nfeatures = [16,32,64,128,256],
                 emd=16,
-                if_sigmoid=False,
-                show_feature=False):
-        super(ResidualUNet, self).__init__()
+                if_sigmoid=False):
+
+        super(AttentionUNet, self).__init__()
+
         self.if_sigmoid = if_sigmoid
-        # self.show_feature = show_feature
 
-        self.inconv = InConv(in_channels, nfeatures[0])
-        self.down1 = Down(nfeatures[0], nfeatures[1])
-        self.down2 = Down(nfeatures[1], nfeatures[2])
-        self.down3 = Down(nfeatures[2], nfeatures[3])
-        self.down4 = Down(nfeatures[3], nfeatures[4])
+        self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.up1_emb = Up(nfeatures[4], nfeatures[4])
-        self.up2_emb = Up(nfeatures[4]+nfeatures[3], nfeatures[3])
-        self.up3_emb = Up(nfeatures[3]+nfeatures[2], nfeatures[2])
-        self.up4_emb = Up(nfeatures[2]+nfeatures[1], nfeatures[1])
-        self.outconv1 = OutConv(nfeatures[4], emd)
-        # self.outconv2 = OutConv(nfeatures[4]+nfeatures[3], emd)
-        # self.outconv3 = OutConv(nfeatures[3]+nfeatures[2], emd)
-        # self.outconv4 = OutConv(nfeatures[2]+nfeatures[1], emd)
-        self.outconv2 = OutConv(nfeatures[4], emd)
-        self.outconv3 = OutConv(nfeatures[3], emd)
-        self.outconv4 = OutConv(nfeatures[2], emd)
+        self.Conv0 = ConvBlock(in_channels, nfeatures[0])
+        self.Conv1 = ConvBlock(nfeatures[0], nfeatures[1])
+        self.Conv2 = ConvBlock(nfeatures[1], nfeatures[2])
+        self.Conv3 = ConvBlock(nfeatures[2], nfeatures[3])
+        self.Conv4 = ConvBlock(nfeatures[3], nfeatures[4])
+
+        self.Up1 = UpConv(nfeatures[4], nfeatures[4])
+        self.Att1 = AttentionBlock(F_g=nfeatures[3], F_l=nfeatures[3], n_coefficients = nfeatures[3])
+        self.up1_conv = ConvBlock(nfeatures[4], nfeatures[3])
+
+        self.Up2 = UpConv(nfeatures[4], nfeatures[3])
+        self.Att2 = AttentionBlock(F_g=nfeatures[2], F_l=nfeatures[2], n_coefficients = nfeatures[2])
+        self.up2_conv= ConvBlock(nfeatures[3], nfeatures[2])
+
+        self.Up3 = UpConv(nfeatures[3], nfeatures[2])
+        self.Att3 = AttentionBlock(F_g=nfeatures[1], F_l=nfeatures[1], n_coefficients = nfeatures[1])
+        self.up3_conv = ConvBlock(nfeatures[2], nfeatures[1])
+
+        self.Up4 = UpConv(nfeatures[2], nfeatures[1])
+        self.Att4 = AttentionBlock(F_g=nfeatures[0], F_l=nfeatures[0], n_coefficients = nfeatures[0])
+        self.up4_conv = ConvBlock(nfeatures[1], nfeatures[0])
+
+        self.outConv1 = OutConv(nfeatures[4], emd)
+        self.outConv2 = OutConv(nfeatures[4], emd)
+        self.outConv3 = OutConv(nfeatures[3], emd)
+        self.outConv4 = OutConv(nfeatures[2], emd)
         self.outconv_emb = OutConv(nfeatures[1], emd)
+
 
         self.binary_seg = nn.Sequential(
             nn.Conv2d(nfeatures[1], nfeatures[1], 1),
@@ -113,51 +177,67 @@ class ResidualUNet(nn.Module):
             nn.Conv2d(nfeatures[1], out_channels, 1)
         )
 
-    def concat_channels(self, x_cur, x_prev):
-
-        # print("x_cur.shape: ", x_cur.shape)
-        # print("x_prev.shape: ", x_prev.shape)
-
-        if x_cur.shape!=x_prev.shape:  # after padding, image size changes 
-            p1 = x_prev.shape[-1] - x_cur.shape[-1] 
-            p2 = x_prev.shape[-2] - x_cur.shape[-2] 
-            padding = nn.ReplicationPad2d((0, p1, 0, p2)).cuda() 
-            x_cur = padding(x_cur) 
-        #     print("padded x_cur: ", x_cur.shape) 
-        # print("concatenated shape: ", torch.cat([x_cur, x_prev], dim=1).shape, "\n") 
-        return torch.cat([x_cur, x_prev], dim=1) 
 
     def forward(self, x):
-        #encoder
-        x1 = self.inconv(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
-        x_emb1 = self.outconv1(x5)
+        """ 
+        e : encoder layers 
+        d : decoder layers 
+        s : skip-connections from encoder layers to decoder layers 
+        """
+        e1 = self.Conv0(x) # 512*512*16 
 
-        x_emb0 = self.up1_emb(x5)
-        x_emb2 = self.outconv2(x_emb0)
+        e2 = self.MaxPool(e1) #  256*256*16 
+        e2 = self.Conv1(e2) # 256*256*32 
 
-        x_emb0 = self.concat_channels(x_emb0, x4)
-        x_emb0 = self.up2_emb(x_emb0)
-        x_emb3 = self.outconv3(x_emb0)
+        e3 = self.MaxPool(e2)  #  128*128*32 
+        e3 = self.Conv2(e3)  # 128*128*64 
 
-        x_emb0 = self.concat_channels(x_emb0, x3)
-        x_emb0 = self.up3_emb(x_emb0)
-        x_emb4 = self.outconv4(x_emb0)
+        e4 = self.MaxPool(e3)  #  64*64*64 
+        e4 = self.Conv3(e4)  # 64*64*128 
 
-        x_emb0 = self.concat_channels(x_emb0, x2)
-        x_emb0 = self.up4_emb(x_emb0)
-        x_emb5 = self.outconv_emb(x_emb0)
+        e5 = self.MaxPool(e4)  #  32*32*128 
+        e5 = self.Conv4(e5)  # 32*32*256 
+        x_emb1 = self.outConv1(e5)   # 32*32*16 
 
-        binary_seg = self.binary_seg(x_emb0)
+        d1 = self.Up1(e5)    # 64*64*256   bridge layer 
+        d1 = self.up1_conv(d1)           #  64*64*128 
 
-        if self.if_sigmoid:
-            binary_seg = torch.sigmoid(binary_seg)
 
-        return x_emb1, x_emb2, x_emb3, x_emb4, x_emb5, binary_seg
+        print("d1 shape: ", d1.shape) 
+        # print("d2 shape: ", d2.shape) 
+        print("e3 shape", e3.shape)
+        print("e4 shape", e4.shape)
+        print("e5 shape: ", e5.shape) 
+        s1 = self.Att1(gate=d1, skip_connection=e4)    #  64*64*128 
+        d1 = torch.cat((s1, d1), dim=1)  #  64*64*(128+128)  concatenate attention-weighted skip connection with previous layer output 
+        x_emb2 = self.outConv2(d1)  # 64*64*16 
 
+        d2 = self.Up2(d1)    #  128*128*128
+        d2 = self.up2_conv(d2)   #  128*128*64
+        # print("d2 shape: ", d2.shape) 
+        # print("e3 shape: ", e3.shape) 
+        s2 = self.Att2(gate=d2, skip_connection=e3)  #  128*128*64 
+        d2 = torch.cat((s2, d2), dim=1)   #  128*128*(64+64) 
+        x_emb3 = self.outConv3(d2)   #  128*128*16 
+
+        d3 = self.Up3(d2)     #  256*256*64 
+        d3 = self.up3_conv(d3)          #  256*256*32
+        s3 = self.Att3(gate=d3, skip_connection=e2)  #  256*256*32 
+        d3 = torch.cat((s3, d3), dim=1)   #  256*256*(32+32) 
+        x_emb4 = self.outConv4(d3)      #  256*256*16
+
+        d4 = self.Up4(d3)     #  512*512*16 
+        d4 = self.up4_conv(d4)       #  512*512*16 
+        s4 = self.Att4(gate=d4, skip_connection=e1)  #  512*512*16 
+        d4 = torch.cat((s4, d4), dim=1)     #  512*512*(16+16) 
+        x_emb5 = self.outconv_emb(d4)   #  512*512*16 
+
+        binary_seg = self.binary_seg(d4) 
+
+        if self.if_sigmoid: 
+            binary_seg = torch.sigmoid(binary_seg) 
+
+        return x_emb1, x_emb2, x_emb3, x_emb4, x_emb5, binary_seg 
 
 
 
@@ -165,25 +245,20 @@ if __name__ == '__main__':
     import numpy as np
     from ptflops import get_model_complexity_info
 
-    x = torch.Tensor(np.random.random((4, 3, 512, 512)).astype(np.float32)).cuda()
-    # model = ResidualUNet2D_deep(out_channels=2).cuda()
-    # model = ResidualUNet2D_embedding().cuda()
-    # model = ResidualUNet2D_embedding(nfeatures=[64,128,256,512,1024]).cuda()  # 1254.23, 75.15M
-    # model = ResidualUNet2D_embedding(nfeatures=[32,64,128,256,512]).cuda()  # 314.39, 18.8M
-    model = ResidualUNet(nfeatures=[16,32,64,128,256]).cuda()  # 15.15 GMac, 4.72M
-    # model = ResidualUNet2D_embedding(nfeatures=[16,32,48,64,128]).cuda()  # 40.59, 1.34M
-    # model = ResidualUNet2D_embedding(nfeatures=[16,20,30,40,64]).cuda()  # 16.5, 421.5k
-    # model = ResidualUNet2D_embedding(nfeatures=[8,12,16,20,32]).cuda()  # 5.15, 111.8k
-    # model = ResidualUNet2D_embedding(nfeatures=[4,8,10,12,16]).cuda()  # 2.08, 36.47k
-    # model = ResidualUNet2D_deep().cuda()
+    x = torch.Tensor(np.random.random((1, 3, 512+14, 512+44)).astype(np.float32)).cuda()
+    # model = AttentionUNet(out_channels=2).cuda()
+    # model = AttentionUNet().cuda()
+    model = AttentionUNet(nfeatures=[64,128,256,512,1024]).cuda()  # 469.93 GMac, 44.66 M
+    # model = AttentionUNet(nfeatures=[16,32,64,128,256]).cuda()  # 29.91 GMac, 2.81M
+
 
     emb1, emb2, emb3, emb4, emb, mask = model(x)
-    # emb, mask = model(x)
+    # # emb, mask = model(x)
     # print(emb1.shape, emb2.shape, emb3.shape, emb4.shape, emb.shape)
-    print(emb.shape)
-    print(mask.shape)
+    # print(emb.shape)
+    # print(mask.shape)
 
-    macs, params = get_model_complexity_info(model, (3, 224, 224), as_strings=True,
-                                           print_per_layer_stat=True, verbose=True)
-    print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
-    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+    # macs, params = get_model_complexity_info(model, (3, 512, 512), as_strings=True,
+    #                                        print_per_layer_stat=True, verbose=True)
+    # print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+    # print('{:<30}  {:<8}'.format('Number of parameters: ', params))

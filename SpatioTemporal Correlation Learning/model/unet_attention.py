@@ -1,5 +1,3 @@
-""" Full assembly of the parts to form the complete network """
-
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -11,7 +9,7 @@ from torchvision.utils import make_grid
 # Data manipulations
 import numpy as np
 from PIL import Image
-import cv2
+# import cv2
 import pandas as pd
 from skimage import io, transform
 import matplotlib.pyplot as plt
@@ -92,24 +90,20 @@ class AttentionBlock(nn.Module):
         :param skip_connection: activation from corresponding encoder layer
         :return: output activations
         """
-
-        print("gate shape: ", gate.shape)
-
-        print("skip_connection shape: ", skip_connection.shape)
-
+        
         if gate.shape != skip_connection.shape:  # after padding, image size changes 
-            p1 = gate.shape[-1] - skip_connection.shape[-1] 
-            p2 = gate.shape[-2] - skip_connection.shape[-2] 
+            p1 = skip_connection.shape[-1] - gate.shape[-1] 
+            p2 = skip_connection.shape[-2] - gate.shape[-2] 
             padding = nn.ReplicationPad2d((0, p1, 0, p2)).cuda() 
-            skip_connection = padding(skip_connection) 
+            gate = padding(gate) 
 
         g1 = self.W_gate(gate)
 
-        print(g1.shape)
+        # print("g1.shape: ", g1.shape)
 
         x1 = self.W_x(skip_connection)
 
-        print(x1.shape)
+        # print("x1.shape: ", x1.shape)
         psi = self.relu(g1 + x1)
         psi = self.psi(psi)
         out = skip_connection * psi
@@ -124,6 +118,7 @@ class OutConv(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
+
 
 
 class AttentionUNet(nn.Module):
@@ -169,13 +164,27 @@ class AttentionUNet(nn.Module):
         self.outConv4 = OutConv(nfeatures[2], emd)
         self.outconv_emb = OutConv(nfeatures[1], emd)
 
-
         self.binary_seg = nn.Sequential(
             nn.Conv2d(nfeatures[1], nfeatures[1], 1),
             nn.BatchNorm2d(nfeatures[1]),
             nn.ReLU(),
             nn.Conv2d(nfeatures[1], out_channels, 1)
         )
+
+    def concat_channels(self, x_cur, x_prev):
+
+        # print("x_cur.shape: ", x_cur.shape)
+        # print("x_prev.shape: ", x_prev.shape)
+
+        if x_cur.shape!=x_prev.shape:  # after padding, image size changes 
+            p1 = x_prev.shape[-1] - x_cur.shape[-1] 
+            p2 = x_prev.shape[-2] - x_cur.shape[-2] 
+            padding = nn.ReplicationPad2d((0, p1, 0, p2)).cuda() 
+            x_cur = padding(x_cur) 
+        #     print("padded x_cur: ", x_cur.shape) 
+        # print("concatenated shape: ", torch.cat([x_cur, x_prev], dim=1).shape, "\n") 
+        return torch.cat([x_cur, x_prev], dim=1) 
+
 
 
     def forward(self, x):
@@ -202,37 +211,37 @@ class AttentionUNet(nn.Module):
         d1 = self.Up1(e5)    # 64*64*256   bridge layer 
         d1 = self.up1_conv(d1)           #  64*64*128 
 
-
-        print("d1 shape: ", d1.shape) 
-        # print("d2 shape: ", d2.shape) 
-        print("e3 shape", e3.shape)
-        print("e4 shape", e4.shape)
-        print("e5 shape: ", e5.shape) 
+        # print("e1 shape: ", e1.shape) 
+        # print("e3 shape", e3.shape)
+        # print("e4 shape", e4.shape)
+        # print("e5 shape: ", e5.shape) 
         s1 = self.Att1(gate=d1, skip_connection=e4)    #  64*64*128 
-        d1 = torch.cat((s1, d1), dim=1)  #  64*64*(128+128)  concatenate attention-weighted skip connection with previous layer output 
+
+        d1 = self.concat_channels(d1, s1)  #  64*64*(128+128)  concatenate attention-weighted skip connection with previous layer output 
         x_emb2 = self.outConv2(d1)  # 64*64*16 
 
         d2 = self.Up2(d1)    #  128*128*128
         d2 = self.up2_conv(d2)   #  128*128*64
-        # print("d2 shape: ", d2.shape) 
-        # print("e3 shape: ", e3.shape) 
+
         s2 = self.Att2(gate=d2, skip_connection=e3)  #  128*128*64 
-        d2 = torch.cat((s2, d2), dim=1)   #  128*128*(64+64) 
+        d2 = self.concat_channels(d2, s2)   #  128*128*(64+64) 
         x_emb3 = self.outConv3(d2)   #  128*128*16 
 
         d3 = self.Up3(d2)     #  256*256*64 
         d3 = self.up3_conv(d3)          #  256*256*32
         s3 = self.Att3(gate=d3, skip_connection=e2)  #  256*256*32 
-        d3 = torch.cat((s3, d3), dim=1)   #  256*256*(32+32) 
+        d3 = self.concat_channels(d3, s3)   #  256*256*(32+32) 
         x_emb4 = self.outConv4(d3)      #  256*256*16
 
         d4 = self.Up4(d3)     #  512*512*16 
         d4 = self.up4_conv(d4)       #  512*512*16 
         s4 = self.Att4(gate=d4, skip_connection=e1)  #  512*512*16 
-        d4 = torch.cat((s4, d4), dim=1)     #  512*512*(16+16) 
+        # print(s4.shape, d4.shape)
+        d4 = self.concat_channels(d4, s4)     #  512*512*(16+16) 
         x_emb5 = self.outconv_emb(d4)   #  512*512*16 
 
         binary_seg = self.binary_seg(d4) 
+        # print("binary_seg: ", binary_seg.shape)
 
         if self.if_sigmoid: 
             binary_seg = torch.sigmoid(binary_seg) 
@@ -246,6 +255,8 @@ if __name__ == '__main__':
     from ptflops import get_model_complexity_info
 
     x = torch.Tensor(np.random.random((1, 3, 512+14, 512+44)).astype(np.float32)).cuda()
+    # x = torch.Tensor(np.random.random((1, 3, 512, 512)).astype(np.float32)).cuda()
+
     # model = AttentionUNet(out_channels=2).cuda()
     # model = AttentionUNet().cuda()
     model = AttentionUNet(nfeatures=[64,128,256,512,1024]).cuda()  # 469.93 GMac, 44.66 M
@@ -254,7 +265,7 @@ if __name__ == '__main__':
 
     emb1, emb2, emb3, emb4, emb, mask = model(x)
     # # emb, mask = model(x)
-    # print(emb1.shape, emb2.shape, emb3.shape, emb4.shape, emb.shape)
+    print(emb1.shape, emb2.shape, emb3.shape, emb4.shape, emb.shape, mask.shape)
     # print(emb.shape)
     # print(mask.shape)
 

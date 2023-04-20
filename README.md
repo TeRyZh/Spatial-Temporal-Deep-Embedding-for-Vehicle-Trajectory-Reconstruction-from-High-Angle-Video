@@ -1,4 +1,4 @@
-# Spatial-Temporal Deep Embedding for Vehicle Trajectory Reconstruction from High-Angle Video
+# Precise NGSIM: Deep Spatial-Temporal Embedding for Vehicle Trajectory Reconstruction and Validation
 
 Abstract
 ---------------------

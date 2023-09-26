@@ -1,5 +1,5 @@
 # Precise NGSIM: Deep Spatial-Temporal Embedding for Vehicle Trajectory Reconstruction and Validation
-
+[![DOI](https://zenodo.org/badge/503547507.svg)](https://zenodo.org/badge/latestdoi/503547507)
 Abstract
 ---------------------
 

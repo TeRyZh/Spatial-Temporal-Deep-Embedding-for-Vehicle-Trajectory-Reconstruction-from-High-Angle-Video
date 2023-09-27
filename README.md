@@ -53,6 +53,9 @@ If you found any issues in our model or new dataset please contact: terry.tianya
 
 Reference
 -----------
-- Gao N, Shan Y, Wang Y, Zhao X, Yu Y, Yang M, Huang K. Ssap: Single-shot instance segmentation with affinity pyramid. InProceedings of the IEEE/CVF International Conference on Computer Vision 2019 (pp. 642-651).
+- Kong, S., & Fowlkes, C. C. (2018). Recurrent pixel embedding for instance grouping. In Proceedings of the IEEE conference on computer vision and pattern recognition (pp. 9018-9028).
+- Gao N, Shan Y, Wang Y, Zhao X, Yu Y, Yang M, Huang K. Ssap: Single-shot instance segmentation with affinity pyramid. In Proceedings of the IEEE/CVF International Conference on Computer Vision 2019 (pp. 642-651).
 - Chen, L., Strauch, M. and Merhof, D., 2019, October. Instance segmentation of biomedical images with an object-aware embedding learned with local constraints. In International Conference on Medical Image Computing and Computer-Assisted Intervention (pp. 451-459). Springer, Cham. 
 - Huang, W., Deng, S., Chen, C., Fu, X., & Xiong, Z. (2022). Learning to Model Pixel-Embedded Affinity for Homogeneous Instance Segmentation. Proceedings of the AAAI Conference on Artificial Intelligence, 36(1), 1007-1015. https://doi.org/10.1609/aaai.v36i1.19984
+- https://github.com/looooongChen/instance_segmentation_with_pixel_embeddings/
+- https://github.com/aimerykong/Recurrent-Pixel-Embedding-for-Instance-Grouping

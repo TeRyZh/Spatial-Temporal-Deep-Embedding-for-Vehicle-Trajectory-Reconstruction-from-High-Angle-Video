@@ -1,4 +1,4 @@
-## Unzip The following files before replicating the figures using the code:
+## Unzip the following files before replicating the figures using the code:
 
 final_I80_trajectories-0400pm-0415pm.zip
 
